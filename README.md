@@ -8,9 +8,24 @@ Locate the beginning of `Core_inventory/main.lua` on the client-side and insert 
 ```lua
 -- Add the CreateDrop function here
 
-local function CreateDrop(pedId, dropPosition, dropsName)
-    -- Function content
+local function CreateDrop(pedId, dropPosition, dropsName, itemName, itemID)
+    local x, y, z = table.unpack(GetOffsetFromEntityInWorldCoords(pedId, 0.0, 0.5, 0.05))
+
+    -- Вибір пропа на основі itemID
+    local propName = Config.ItemProps[itemID] and Config.ItemProps[itemID].prop or Config.DropProp
+    local prop = CreateObject(GetHashKey(propName), x, y, z, true, true, true)
+
+    -- Застосування ротації, якщо це необхідно
+    if Config.ItemProps[itemID] and Config.ItemProps[itemID].rotation then
+        local rotation = Config.ItemProps[itemID].rotation
+        SetEntityRotation(prop, rotation[1], rotation[2], rotation[3], 2, true)
+    end
+
+    PlaceObjectOnGroundProperly(prop)
+    table.insert(DropsProps, { coords = dropPosition, props = prop, itemNumber = 1, name = dropsName, item = itemName or "Невідомий предмет", itemID = itemID })
+    print("Drop created successfully with item:", itemName, "and prop:", propName)
 end
+
 ```
 
 ### Step 2: Initialize `DropsProps`
@@ -26,9 +41,71 @@ Find the comment `-- Drop Loop` just before the `Citizen.CreateThread` definitio
 ```lua
 -- Add the Drop Loop code here
 
+local function Draw3DText(x, y, z, text)
+    local onScreen, _x, _y = World3dToScreen2d(x, y, z)
+    local px, py, pz = table.unpack(GetGameplayCamCoords())
+
+    if onScreen then
+        SetTextScale(0.35, 0.35)
+        SetTextFont(4)
+        SetTextProportional(1)
+        SetTextColour(255, 255, 255, 215)
+        SetTextEntry("STRING")
+        SetTextCentre(1)
+        AddTextComponentString(text)
+        DrawText(_x, _y)
+    end
+end
+
+
+
+
 Citizen.CreateThread(function()
-    -- Thread content
+    while true do
+        local threadSleep = 1000
+        if DropsProps ~= nil and #DropsProps > 0 then
+            local entryToDelete = {}
+            for i = 1, #DropsProps, 1 do
+                if Drops[DropsProps[i].name] == nil then
+                    SetEntityAsMissionEntity(DropsProps[i].props)
+                    DeleteEntity(DropsProps[i].props)
+                    table.insert(entryToDelete, { name = DropsProps[i].name, index = i })
+                end
+            end
+            for index, value in ipairs(entryToDelete) do
+                table.remove(DropsProps, value.index)
+            end
+        end
+
+        if playerLoaded then
+            local ped = PlayerPedId()
+            local coords = GetEntityCoords(ped)
+
+            if DropsProps ~= nil and #DropsProps > 0 then
+                for k, v in pairs(DropsProps) do
+                    if #(v.coords - coords) < Config.DropShowDistance then
+                        threadSleep = 0
+                        -- Використання Draw3DText замість FloatingHelpNotification
+                        local itemLabel = v.item or "Невідомий предмет"
+                        local itemText = Config.TextNotify.Drop:gsub("{item}", itemLabel)
+                        Draw3DText(v.coords[1], v.coords[2], v.coords[3] + Config.NotifyHeightOffset, itemText)
+                    end
+                end
+            else
+                for k, v in pairs(Config.Storage) do
+                    if #(v.coords - coords) < Config.DropShowDistance then
+                        threadSleep = 0
+                        local storageText = Config.TextNotify.Storage:gsub("{item}", v.name or "Невідоме сховище")
+                        Draw3DText(v.coords[1], v.coords[2], v.coords[3] + Config.NotifyHeightOffset, storageText)
+                    end
+                end
+            end
+        end
+
+        Citizen.Wait(threadSleep)
+    end
 end)
+
 ```
 
 ### Step 4: Replace `dropItem` Callback
@@ -36,7 +113,44 @@ Find the `RegisterNUICallback` for `dropItem`. Replace it with the updated versi
 
 ```lua
 RegisterNUICallback("dropItem", function(data)
-    -- Updated dropItem callback code
+    -- Extract item ID
+    local itemId = data['item']:match("^(.-)-")
+
+    -- Retrieve item label
+    local itemLabel = nil
+    if QBCore and QBCore.Shared and QBCore.Shared.Items[itemId] then
+        itemLabel = QBCore.Shared.Items[itemId].label or "Невідомий предмет"
+    else
+        itemLabel = "Невідомий предмет"
+    end
+
+    local dropPosition = GetOffsetFromEntityInWorldCoords(PlayerPedId(), 0.0, 0.5, 0.05)
+    TriggerServerEvent('core_inventory:server:createDrop', data['item'], dropPosition)
+    Citizen.Wait(200)
+
+    local propsExist = DropPropsExist(dropPosition)
+    local dropsName = nil
+
+    if not propsExist then
+        dropsName = FindDropByCoords(dropPosition)
+        if dropsName == nil then
+            print('Error when try to retrieve drop name')
+            return
+        end
+    end
+
+    if not propsExist then
+        PickAndThorwObjectAnimation(PlayerPedId())
+        -- Передаємо itemId разом з іншими даними
+        CreateDrop(PlayerPedId(), dropPosition, dropsName, itemLabel, itemId)
+        Wait(1000)
+        ClearPedTasks(PlayerPedId())
+    else
+        UpdateDropsPropsInfo(dropsName, dropPosition, 1)
+        PickAndThorwObjectAnimation(PlayerPedId())
+        Wait(1000)
+        ClearPedTasks(PlayerPedId())
+    end
 end)
 ```
 
@@ -45,7 +159,35 @@ Locate the `RegisterNUICallback` for `changeItemLocation`. Replace it with the u
 
 ```lua
 RegisterNUICallback("changeItemLocation", function(data)
-    -- Updated changeItemLocation callback code
+  local item, inventory, slot, fromInv, itemData = data['item'], data['inventory'], data['slot'], data['fromInv'], data['itemData']
+  TriggerServerEvent('core_inventory:server:changeItemLocation', item, inventory, slot, fromInv, itemData)
+
+  if string.find(fromInv, 'drop-') then
+    local props = nil
+    for i = 1, #DropsProps, 1 do
+      if DropsProps[i].name == fromInv then
+        props = { data = DropsProps[i], index = i}
+        break
+    end
+  end
+
+  if props ~= nil then
+    if props.data.itemNumber > 1 then
+      DropsProps[i].itemNumber = DropsProps[i].itemNumber - 1
+    else
+      PickAndThorwObjectAnimation(PlayerPedId())
+      Wait(250)
+      DeleteEntity(props.data.props)
+      table.remove(DropsProps, props.index)
+      Wait(1000)
+      ClearPedTasks(PlayerPedId())
+     end
+    else
+      PickAndThorwObjectAnimation(PlayerPedId())                
+      Wait(1000)
+      ClearPedTasks(PlayerPedId())
+    end
+  end
 end)
 ```
 
@@ -91,4 +233,8 @@ ItemProps = {
 - If you encounter issues, verify the locations and file structure to ensure compatibility with your current setup.
 
 For further assistance, feel free to reach out to the support team or check the documentation.
+[![Join our Discord](https://i.imgur.com/yourImageLink.png)](https://discord.gg/yourDiscordInviteLink)
+
+
+
 
