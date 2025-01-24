@@ -233,8 +233,7 @@ ItemProps = {
 - If you encounter issues, verify the locations and file structure to ensure compatibility with your current setup.
 
 For further assistance, feel free to reach out to the support team or check the documentation.
-[![Join our Discord]([https://i.imgur.com/yourImageLink.png](https://images-eds-ssl.xboxlive.com/image?url=4rt9.lXDC4H_93laV1_eHHFT949fUipzkiFOBH3fAiZZUCdYojwUyX2aTonS1aIwMrx6NUIsHfUHSLzjGJFxxsG72wAo9EWJR4yQWyJJaDb6rYcBtJvTvH3UoAS4JFNDaxGhmKNaMwgElLURlRFeVkLCjkfnXmWtINWZIrPGYq0-&format=source))]([https://discord.gg/yourDiscordInviteLink](https://discord.gg/YbFJ3jyJVy))
+[![Join our Discord]([https://www.datocms-assets.com/41207/1628801075-discord.png))]([https://discord.gg/yourDiscordInviteLink](https://discord.gg/YbFJ3jyJVy))
 
-Прихований; скористайся кнопкою копіювання
 
 
