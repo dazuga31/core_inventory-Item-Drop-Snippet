@@ -233,8 +233,7 @@ ItemProps = {
 - If you encounter issues, verify the locations and file structure to ensure compatibility with your current setup.
 
 For further assistance, feel free to reach out to the support team or check the documentation.
-[![Join our Discord](https://www.datocms-assets.com/41207/1628801075-discord.png)](https://discord.gg/YbFJ3jyJVy)
-
+[![Join our Discord](https://uninonroleplay.com/wp-content/uploads/2025/01/discord.png)](https://discord.gg/YbFJ3jyJVy)
 
 
 
