@@ -2,7 +2,7 @@
 
 Follow the steps below to correctly integrate the inventory snippet into your project.
 
-### Step 1: Add the CreateDrop Function
+### Step 1: Add the CreateDrop and other Functions
 Locate the beginning of `Core_inventory/main.lua` on the client-side and insert the following code:
 
 ```lua
@@ -26,7 +26,59 @@ local function CreateDrop(pedId, dropPosition, dropsName, itemName, itemID)
     print("Drop created successfully with item:", itemName, "and prop:", propName)
 end
 
+
+  local function PickAndThorwObjectAnimation(pedId)
+    while (not HasAnimDictLoaded("random@domestic")) do
+      RequestAnimDict("random@domestic")
+      Wait(100)
+    end
+    TaskPlayAnim(pedId, 'random@domestic', 'pickup_low', 8.0, 8.0, -1, 50, 0, false, false, false)
+    Wait(500)
+  end
+  
+  local function UpdateDropsPropsInfo(dropsName, coords, amount)
+    for key, value in pairs(DropsProps) do
+      if value.coords == coords then
+        value.itemNumber = value.itemNumber + 1
+        value.name = dropsName
+      end
+    end
+  end
+  
+  local function DropPropsExist(coords)
+     if DropsProps == nil then DropsProps = { } end
+    for key, value in pairs(DropsProps) do
+      if value.coords == coords then
+        return true
+      end
+    end
+    return false
+  end
+  
+  local function FindDropByCoords(coords)
+    for key, value in pairs(Drops) do
+      if value.coords == coords then
+        return key
+      end
+    end
+    return nil
+  end
+
+local function LoadCloseItem()
+    local qbItems = QBCore.Shared.Items
+    if qbItems then
+        for k, v in pairs(qbItems) do
+            if v.shouldClose and v.useable then
+                table.insert(Config.CloseAfterUse, k)
+            end
+        end
+    else
+        print('[C8re Inventory] - Unable to load QBCore Shared Item')
+    end
+end
+
 ```
+
 
 ### Step 2: Initialize `DropsProps`
 Find the definition of `Drops = { }` (around line 42). Right after it, add:
@@ -153,6 +205,8 @@ RegisterNUICallback("dropItem", function(data)
     end
 end)
 ```
+
+
 
 ### Step 5: Replace `changeItemLocation` Callback
 Locate the `RegisterNUICallback` for `changeItemLocation`. Replace it with the updated version:
